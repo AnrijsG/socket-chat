@@ -19,7 +19,8 @@ public class ChatClient extends ChatWorker {
 
     public void sendMessage(String message) {
         try {
-            this.writer.write(message);
+            this.writer.write(message + '\n');
+            this.writer.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

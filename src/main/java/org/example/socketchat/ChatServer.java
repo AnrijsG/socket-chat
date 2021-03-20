@@ -1,7 +1,6 @@
 package org.example.socketchat;
 
 import java.io.*;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -23,18 +22,10 @@ public class ChatServer implements AutoCloseable {
         this.serverSocket.setReuseAddress(true);
     }
 
-    public void start() {
-        var thread = new Thread(this::acceptConnections);
-        thread.start();
-    }
-
-    private void acceptConnections() {
+    public void acceptConnections() {
         while (true) {
             try {
                 var client = this.serverSocket.accept();
-
-                var writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8));
-                this.writers.add(writer);
 
                 this.clientThreadPool.submit(() -> {
                     try (var clientWorker = new ClientWorker(client)) {
@@ -52,11 +43,21 @@ public class ChatServer implements AutoCloseable {
     @Override
     public void close() throws Exception {
         serverSocket.close();
+        clientThreadPool.shutdown();
     }
 
     private class ClientWorker extends ChatWorker {
+
+        private final Writer writer;
+
         private ClientWorker(Socket socket) {
             super(socket);
+            try {
+                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+                ChatServer.this.writers.add(writer);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
@@ -66,7 +67,8 @@ public class ChatServer implements AutoCloseable {
 
                 reader.lines().forEach(line -> ChatServer.this.writers.forEach(writer -> {
                     try {
-                        writer.write(line);
+                        writer.write(line + '\n');
+                        writer.flush();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -78,6 +80,7 @@ public class ChatServer implements AutoCloseable {
 
         @Override
         public void close() throws Exception {
+            ChatServer.this.writers.remove(writer);
             this.socket.close();
         }
     }

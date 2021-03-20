@@ -19,7 +19,7 @@ public class SocketChat {
         switch (args[0]) {
             case ARGUMENT_SERVER:
                 try (var chatServer = new ChatServer()) {
-                    chatServer.start();
+                    chatServer.acceptConnections();
                 } catch (Exception e) {
                     System.exit(1);
                 }
